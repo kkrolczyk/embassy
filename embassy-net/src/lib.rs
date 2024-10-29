@@ -71,6 +71,7 @@ const MAX_HOSTNAME_LEN: usize = 32;
 /// Memory resources needed for a network stack.
 pub struct StackResources<const SOCK: usize> {
     sockets: MaybeUninit<[SocketStorage<'static>; SOCK]>,
+    sockets2: MaybeUninit<[SocketStorage<'static>; SOCK]>,
     inner: MaybeUninit<RefCell<Inner>>,
     #[cfg(feature = "dns")]
     queries: MaybeUninit<[Option<dns::DnsQuery>; MAX_QUERIES]>,
@@ -89,6 +90,7 @@ impl<const SOCK: usize> StackResources<SOCK> {
     pub const fn new() -> Self {
         Self {
             sockets: MaybeUninit::uninit(),
+            sockets2: MaybeUninit::uninit(),
             inner: MaybeUninit::uninit(),
             #[cfg(feature = "dns")]
             queries: MaybeUninit::uninit(),
@@ -259,6 +261,7 @@ pub struct Stack<'d> {
 
 pub(crate) struct Inner {
     pub(crate) sockets: SocketSet<'static>, // Lifetime type-erased.
+    pub(crate) sockets2: SocketSet<'static>, // Lifetime type-erased.
     pub(crate) iface: Interface,
     /// Waker used for triggering polls.
     pub(crate) waker: WakerRegistration,
@@ -324,27 +327,33 @@ pub fn new<'d, D: Driver, const SOCK: usize>(
         }),
     ));
 
-
     #[cfg(feature = "icmp")]
-    {
-        let icmp_rx_buffer = icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY], vec![0; 256]);
-        let icmp_tx_buffer = icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY], vec![0; 256]);
-        let icmp_socket = icmp::Socket::new(icmp_rx_buffer, icmp_tx_buffer);
-        let mut sockets = SocketSet::new(vec![]);
-        let icmp_handle = sockets.add(icmp_socket);
-        use smoltcp::socket::icmp;
+    use smoltcp::socket::icmp;
+    #[cfg(feature = "icmp")]
+    let mut a: Vec<icmp::PacketMetadata, 1> = Vec::new();
+    #[cfg(feature = "icmp")]
+    let mut b: Vec<icmp::PacketMetadata, 1> = Vec::new();
+    let mut c: Vec<u8, 256> = Vec::new();
+    let mut d: Vec<u8, 256> = Vec::new();
+    let sockets2 = resources.sockets2.write([SocketStorage::EMPTY; SOCK]);
+    #[cfg(feature = "icmp")]
+    let sockets2 = {
 
-        let icmp_socket = sockets.add(icmp::Socket::new(
-            &[],
-            managed::ManagedSlice::Borrowed(unsafe {
-                transmute_slice(resources.queries.write([const { None }; MAX_QUERIES]))
-            }),
-        ));
-    }
+        #[allow(unused_mut)]
+        let mut sockets2: SocketSet<'static> = SocketSet::new(unsafe { transmute_slice(sockets2) });
+
+        let icmp_rx_buffer = icmp::PacketBuffer::new(&mut a[..], &mut c[..]);
+        let icmp_tx_buffer = icmp::PacketBuffer::new(&mut b[..], &mut d[..]);
+        let icmp_socket = icmp::Socket::new(icmp_rx_buffer, icmp_tx_buffer);
+        let icmp_handle = sockets2.add(icmp_socket);
+        // let icmp_socket = sockets2.add(icmp_socket);
+        sockets2
+    };
 
 
     let mut inner = Inner {
         sockets,
+        sockets2,
         iface,
         waker: WakerRegistration::new(),
         state_waker: WakerRegistration::new(),
