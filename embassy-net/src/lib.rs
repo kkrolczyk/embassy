@@ -75,6 +75,8 @@ pub struct StackResources<const SOCK: usize> {
     inner: MaybeUninit<RefCell<Inner>>,
     #[cfg(feature = "dns")]
     queries: MaybeUninit<[Option<dns::DnsQuery>; MAX_QUERIES]>,
+    #[cfg(feature = "icmp")]
+    icmp_buf: MaybeUninit<[smoltcp::socket::icmp::PacketBuffer<'static>; 2]>,
     #[cfg(feature = "dhcpv4-hostname")]
     hostname: HostnameResources,
 }
@@ -94,6 +96,8 @@ impl<const SOCK: usize> StackResources<SOCK> {
             inner: MaybeUninit::uninit(),
             #[cfg(feature = "dns")]
             queries: MaybeUninit::uninit(),
+            #[cfg(feature = "icmp")]
+            icmp_buf: MaybeUninit::uninit(),
             #[cfg(feature = "dhcpv4-hostname")]
             hostname: HostnameResources {
                 option: MaybeUninit::uninit(),
@@ -330,8 +334,6 @@ pub fn new<'d, D: Driver, const SOCK: usize>(
     #[cfg(feature = "icmp")]
     use smoltcp::socket::icmp;
     #[cfg(feature = "icmp")]
-    let mut a: Vec<icmp::PacketMetadata, 1> = Vec::new();
-    #[cfg(feature = "icmp")]
     let mut b: Vec<icmp::PacketMetadata, 1> = Vec::new();
     let mut c: Vec<u8, 256> = Vec::new();
     let mut d: Vec<u8, 256> = Vec::new();
@@ -341,13 +343,14 @@ pub fn new<'d, D: Driver, const SOCK: usize>(
 
         #[allow(unused_mut)]
         let mut sockets2: SocketSet<'static> = SocketSet::new(unsafe { transmute_slice(sockets2) });
+        unsafe {
+            let mut rx: smoltcp::storage::PacketBuffer<smoltcp::wire::IpAddress> = resources.icmp_buf.assume_init_mut()[0];
+            let mut tx: smoltcp::storage::PacketBuffer<smoltcp::wire::IpAddress> = resources.icmp_buf.assume_init_mut()[1];
+            let icmp_socket = icmp::Socket::new(rx, tx);
+            let icmp_handle = sockets2.add(icmp_socket);
+            sockets2
 
-        let icmp_rx_buffer = icmp::PacketBuffer::new(&mut a[..], &mut c[..]);
-        let icmp_tx_buffer = icmp::PacketBuffer::new(&mut b[..], &mut d[..]);
-        let icmp_socket = icmp::Socket::new(icmp_rx_buffer, icmp_tx_buffer);
-        let icmp_handle = sockets2.add(icmp_socket);
-        // let icmp_socket = sockets2.add(icmp_socket);
-        sockets2
+        }
     };
 
 
