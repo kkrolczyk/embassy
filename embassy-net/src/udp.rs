@@ -6,6 +6,7 @@ use core::task::{Context, Poll};
 
 use smoltcp::iface::{Interface, SocketHandle};
 use smoltcp::socket::udp;
+use smoltcp::socket::icmp;
 pub use smoltcp::socket::udp::{PacketMetadata, UdpMetadata};
 use smoltcp::wire::IpListenEndpoint;
 

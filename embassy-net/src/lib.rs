@@ -324,6 +324,25 @@ pub fn new<'d, D: Driver, const SOCK: usize>(
         }),
     ));
 
+
+    #[cfg(feature = "icmp")]
+    {
+        let icmp_rx_buffer = icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY], vec![0; 256]);
+        let icmp_tx_buffer = icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY], vec![0; 256]);
+        let icmp_socket = icmp::Socket::new(icmp_rx_buffer, icmp_tx_buffer);
+        let mut sockets = SocketSet::new(vec![]);
+        let icmp_handle = sockets.add(icmp_socket);
+        use smoltcp::socket::icmp;
+
+        let icmp_socket = sockets.add(icmp::Socket::new(
+            &[],
+            managed::ManagedSlice::Borrowed(unsafe {
+                transmute_slice(resources.queries.write([const { None }; MAX_QUERIES]))
+            }),
+        ));
+    }
+
+
     let mut inner = Inner {
         sockets,
         iface,

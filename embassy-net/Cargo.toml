@@ -25,6 +25,7 @@ features = ["defmt", "tcp", "udp", "raw", "dns", "dhcpv4", "proto-ipv6", "medium
 [features]
 default = []
 std = []
+icmp = ["smoltcp/socket-icmp"]
 
 ## Enable defmt
 defmt = ["dep:defmt", "smoltcp/defmt", "embassy-net-driver/defmt", "heapless/defmt-03", "defmt?/ip_in_core"]
@@ -53,7 +54,7 @@ dhcpv4-hostname = ["dhcpv4"]
 ## Enable IPv4 support
 proto-ipv4 = ["smoltcp/proto-ipv4"]
 ## Enable IPv6 support
-proto-ipv6 = ["smoltcp/proto-ipv6"]
+proto-ipv6 = ["smoltcp/proto-ipv6", "smoltcp/socket-icmp"]
 ## Enable the Ethernet medium
 medium-ethernet = ["smoltcp/medium-ethernet"]
 ## Enable the IP medium
