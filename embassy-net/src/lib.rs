@@ -41,9 +41,10 @@ pub use smoltcp::config::DNS_MAX_SERVER_COUNT;
 pub use smoltcp::iface::MulticastError;
 #[allow(unused_imports)]
 use smoltcp::iface::{Interface, SocketHandle, SocketSet, SocketStorage};
-use smoltcp::phy::Medium;
+use smoltcp::phy::{Medium, PacketMeta};
 #[cfg(feature = "dhcpv4")]
 use smoltcp::socket::dhcpv4::{self, RetryConfig};
+use smoltcp::socket::icmp::PacketMetadata;
 #[cfg(feature = "medium-ethernet")]
 pub use smoltcp::wire::EthernetAddress;
 #[cfg(any(feature = "medium-ethernet", feature = "medium-ieee802154", feature = "medium-ip"))]
@@ -335,26 +336,24 @@ pub fn new<'d, D: Driver, const SOCK: usize>(
         }),
     ));
 
+    let sockets2 = resources.sockets2.write([SocketStorage::EMPTY; SOCK]);
     #[cfg(feature = "icmp")]
     use smoltcp::socket::icmp;
-    #[cfg(feature = "icmp")]
-    let mut b: Vec<icmp::PacketMetadata, 1> = Vec::new();
-    let mut c: Vec<u8, 256> = Vec::new();
-    let mut d: Vec<u8, 256> = Vec::new();
-    let sockets2 = resources.sockets2.write([SocketStorage::EMPTY; SOCK]);
     #[cfg(feature = "icmp")]
     let sockets2 = {
 
         #[allow(unused_mut)]
         let mut sockets2: SocketSet<'static> = SocketSet::new(unsafe { transmute_slice(sockets2) });
         unsafe {
+            // TODO: temporary
+            static mut z1: [u8; 16] = [0u8; 16];
+            static mut z2: [u8; 16] = [0u8; 16];
+            static mut y1: [PacketMetadata; 2] = [PacketMetadata::EMPTY; 2];
+            static mut y2: [PacketMetadata; 2] = [PacketMetadata::EMPTY; 2];
+            let x1: smoltcp::storage::PacketBuffer<'static, IpAddress> = smoltcp::storage::PacketBuffer::new(&mut y1[..], &mut z1[..]);
+            let x2: smoltcp::storage::PacketBuffer<'static, IpAddress> = smoltcp::storage::PacketBuffer::new(&mut y2[..], &mut z2[..]);
             let icmp_socket = icmp::Socket::new(
-                managed::ManagedSlice::Borrowed(unsafe {
-                    transmute_slice(resources.icmp_buf_rx.assume_init_mut())
-                }),
-                managed::ManagedSlice::Borrowed(unsafe {
-                    transmute_slice(resources.icmp_buf_tx.assume_init_mut()) // .write( resources.icmp_buf.assume_init_mut()[1] )
-                }),
+                x1, x2
             );
             let icmp_handle = sockets2.add(icmp_socket);
             sockets2
