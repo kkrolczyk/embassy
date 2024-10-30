@@ -21,7 +21,7 @@ pub enum RecvError {
     Truncated,
 }
 
-/// An Raw socket.
+/// An ICMP socket.
 pub struct IcmpSocket<'a> {
     stack: Stack<'a>,
     handle: SocketHandle,
