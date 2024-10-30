@@ -12,6 +12,7 @@ memory management designed to work well for embedded systems, aiming for a more 
 - Ethernet and bare-IP mediums.
 - TCP, UDP, DNS, DHCPv4
 - TCP sockets implement the `embedded-io` async traits.
+- some ICMP support
 - Multicast
 
 See the [`smoltcp`](https://github.com/smoltcp-rs/smoltcp) README for a detailed list of implemented and
